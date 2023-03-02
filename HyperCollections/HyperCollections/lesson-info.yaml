@@ -1,0 +1,7 @@
+type: framework
+content:
+- Immutable Collections
+- BiMaps and MultiSets
+- Size Limited Queues
+- Ranges
+current_task: 0

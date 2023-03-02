@@ -1,0 +1,147 @@
+<h5 id="description">Description</h5>
+<p>A <strong>bimap</strong>, or "bidirectional map", is a map that preserves the uniqueness of its values as well as that of its keys. It maintains two underlying maps: one for the forward mapping from keys to values, and another for the reverse mapping from values to keys. This constraint enables bimaps to support an <code class="language-java">"inverse view"</code>, which is a second bimap containing the same entries as the first bimap but with reversed keys and values.</p>
+<p>A <strong>multiset</strong> collection supports order-independent equality, like <code class="language-java">Set</code>, but may have duplicate elements. A multiset is also sometimes called a <strong>bag</strong>. Elements of a multiset that are equal to one another are referred to as <strong>occurrences</strong> of the same single element. The total number of occurrences of an element in a multiset is called the <strong>count</strong> of that element (the terms "frequency" and "multiplicity" are equivalent, but not used in this API). Since the count of an element is represented as an <code class="language-java">int</code>, a multiset may never contain more than <code class="language-java">Integer.MAX_VALUE</code> occurrences of any one element.</p>
+<h5 id="objectives">Objectives</h5>
+<ul>
+<li>Implement the following endpoints in the <code class="language-java">BiMap&lt;K, V&gt;</code> class:</li>
+</ul>
+<table align="center" border="1" cellpadding="1" cellspacing="1">
+<thead>
+<tr>
+<th>Method (endpoints)</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">V put(K key, V value)</td>
+<td style="text-align: center;">Stores the key-value pair. If a value or a key is already in BiMap - it should throw an <code class="language-java">IllegalArgumentException</code></td>
+</tr>
+<tr>
+<td style="text-align: center;">putAll(Map&lt;K, V&gt; map)</td>
+<td style="text-align: center;">Stores all key-value pairs from a map. If any values or keys are already in BiMap - it should throw an <code class="language-java">IllegalArgumentException</code></td>
+</tr>
+<tr>
+<td style="text-align: center;">Set&lt;V&gt; values()</td>
+<td style="text-align: center;">Returns all the values of a map as a<strong> </strong><code class="language-java">Set</code></td>
+</tr>
+<tr>
+<td style="text-align: center;">V forcePut(K key, V value)</td>
+<td style="text-align: center;">Inserts the specified key-value pair into the map, replacing any existing mapping for the same key or value.</td>
+</tr>
+<tr>
+<td style="text-align: center;">BiMap&lt;V, K&gt; inverse()</td>
+<td style="text-align: center;">Returns the inverse view of this bimap, which maps each of this bimap's values to its associated key</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Implement the following endpoints in the <code class="language-java">Multiset&lt;E&gt;</code> class:</li>
+</ul>
+<table align="center" border="1" cellpadding="1" cellspacing="1">
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">add(E element)</td>
+<td style="text-align: center;">Adds a single occurrence of the specified element to the current multiset</td>
+</tr>
+<tr>
+<td style="text-align: center;">add(E element, int occurrences)</td>
+<td style="text-align: center;">Adds a number of occurrences of an element to the current multiset</td>
+</tr>
+<tr>
+<td style="text-align: center;">boolean contains(E element)</td>
+<td style="text-align: center;">Determines whether the current multiset contains the specified element</td>
+</tr>
+<tr>
+<td style="text-align: center;">int count(E element)</td>
+<td style="text-align: center;">Returns the number of occurrences of an element in the current multiset (the count of the element)</td>
+</tr>
+<tr>
+<td style="text-align: center;">Set&lt;E&gt; elementSet()</td>
+<td style="text-align: center;">Returns the set of distinct elements contained in the current multiset</td>
+</tr>
+<tr>
+<td style="text-align: center;">remove(E element)</td>
+<td style="text-align: center;">Removes a single occurrence of the specified element from the current multiset, if present</td>
+</tr>
+<tr>
+<td style="text-align: center;">remove(E element, int occurrences)</td>
+<td style="text-align: center;">Removes a number of occurrences of the specified element from the current multiset</td>
+</tr>
+<tr>
+<td style="text-align: center;">setCount(E element, int count)</td>
+<td style="text-align: center;">Adds or removes the necessary occurrences of an element so that the element attains the desired count. If there are no occurences, multiset's elements should not change.</td>
+</tr>
+<tr>
+<td style="text-align: center;">setCount(E element, int oldCount, int newCount)</td>
+<td style="text-align: center;">Conditionally sets the count of an element to a new value, as described in <code class="language-java">setCount(E element, int count)</code>, provided that the element has the expected current count. If there are no occurences, multiset's elements should not change.</td>
+</tr>
+</tbody>
+</table>
+<p>Note:<strong> </strong>the <code class="language-java">BiMap</code> and <code class="language-java">Multiset</code> classes must be generic.</p>
+<h5 id="examples">Examples</h5>
+<p><strong>Example 1</strong>: <em>BiMap&lt;K, V&gt;</em></p>
+<pre><code class="language-java">BiMap&lt;Character, Integer&gt; biMap = new BiMap&lt;&gt;();
+
+biMap.put('a', 3);
+biMap.putAll(Map.of('b', 4, 'c', 5));
+
+System.out.println(biMap); // {a=3, b=4, c=5}
+System.out.println(biMap.values()); // [3, 4, 5]
+
+//biMap.put('a', 6); - an IllegalArgumentException should be thrown
+//biMap.put('d', 3); - an IllegalArgumentException should be thrown
+//biMap.putAll(Map.of('d', 6, 'e', 4)); - an IllegalArgumentException should be thrown
+//biMap.putAll(Map.of('d', 6, 'c', 7)); - an IllegalArgumentException should be thrown
+
+biMap.putAll(Map.of('d', 6, 'e', 7));
+
+System.out.println(biMap); // {a=3, b=4, c=5, d=6, e=7}
+System.out.println(biMap.inverse()); // {3=a, 4=b, 5=c, 6=d, 7=e}
+
+biMap.forcePut('f', 8);
+
+System.out.println(biMap); // {a=3, b=4, c=5, d=6, e=7, f=8}
+System.out.println(biMap.inverse()); // {3=a, 4=b, 5=c, 6=d, 7=e, 8=f}
+
+biMap.forcePut('a', 9);
+
+System.out.println(biMap); // {a=9, b=4, c=5, d=6, e=7, f=8}
+System.out.println(biMap.inverse()); // {4=b, 5=c, 6=d, 7=e, 8=f, 9=a}
+
+biMap.forcePut('g', 4);
+
+System.out.println(biMap); // {a=9, c=5, d=6, e=7, f=8, g=4}
+System.out.println(biMap.inverse()); // {4=g, 5=c, 6=d, 7=e, 8=f, 9=a}
+
+biMap.forcePut('c', 6);
+
+System.out.println(biMap); // {a=9, c=6, e=7, f=8, g=4}
+System.out.println(biMap.inverse()); // {4=g, 6=c, 7=e, 8=f, 9=a}</code></pre>
+<p><strong>Example 2</strong>:<em> multiset&lt;E&gt;</em></p>
+<pre><code class="language-java">Multiset&lt;Character&gt; multiset = new Multiset&lt;&gt;();
+multiset.add('a');
+multiset.add('b', 6);
+
+System.out.println(multiset); // [a, b, b, b, b, b, b]
+System.out.println(multiset.contains('c')); // false
+System.out.println(multiset.count('b')); // 6
+System.out.println(multiset.elementSet()); // ['a', 'b']
+
+multiset.remove('a');
+multiset.remove('b', 3);
+
+System.out.println(multiset); // [b, b, b]
+
+multiset.add('c');
+multiset.setCount('c', 2);
+multiset.setCount('b', 3, 4);
+
+System.out.println(multiset); // [b, b, b, b, c, c]</code></pre>
+<p>Note: you don't need to implement the <code class="language-java">main</code> method. </p>

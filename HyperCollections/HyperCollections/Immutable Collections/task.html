@@ -1,0 +1,38 @@
+<h5 id="description">Description</h5>
+<p>In the first stage of the project, you will create a simple immutable generic collection. The elements of the collection shouldn't change under any circumstances. To implement this properly is actually more difficult than it seems at the first glance. </p>
+<p>After completing this stage, you will already have understood the general approaches used in this project. However, you might have a question: why do we need a collection that can't be changed at all? In fact, working with immutable data is very convenient and allows avoiding many possible mistakes. <strong>Immutability</strong> is a crucial concept in this project. Remember the <code class="language-java">String</code> class, whose elements can't be modified either.</p>
+<h5 id="objectives">Objectives</h5>
+<p>This stage will reveal to you all the key ideas, restrictions, and agreements that you should use throughout the project to successfully complete it.</p>
+<ol>
+<li>You should create a <strong>final</strong> class named <code class="language-java">ImmutableCollection</code> in <strong>collections</strong> package.</li>
+<li>The class should contain a static factory method called <code class="language-java">of</code> that takes an arbitrary number of elements as an argument and returns an implementation of it (i.e. an instance of the <code class="language-java">ImmutableCollection</code> class).</li>
+<li>The invocation <code class="language-java">ImmutableCollection.of()</code> should create an empty collection, whereas the invocation <code class="language-java">ImmutableCollection.of(1, 2, 3, 4, 5)</code> should create a five-element collection.</li>
+<li>If any of the passed elements changes in the external code, it shouldn't change within the collection.</li>
+<li>If any of the passed elements is null, the method <code class="language-java">of</code> should throw NPE.</li>
+<li>The class should contain the <code class="language-java">boolean contains(E element)</code> method that checks whether the collection contains a specified element.</li>
+<li>The class should provide <code class="language-java">int size()</code> and <code class="language-java">boolean isEmpty()</code> methods that check the size of the collection and whether it is empty, respectively.</li>
+</ol>
+<p></p><div class="alert alert-primary">To implement this, you should use a utility class called <code class="language-java">Objects</code>. It has a set of convenient static methods to work with the <code class="language-java">null</code> value, compare references, and so on. Using this class will make your code more error-prone and well-readable.</div>
+<h5 id="example">Example</h5>
+<p>Here is an example of how to work with the collection:</p>
+<pre><code class="language-java">ImmutableCollection&lt;?&gt; emptyCollection = ImmutableCollection.of();
+System.out.println(emptyCollection.size()); // 0
+System.out.println(emptyCollection.isEmpty()); // true
+
+Student student1 = new Student(1, "Student 1", "Email 1");
+
+ImmutableCollection&lt;Student&gt; addresses = ImmutableCollection.of(
+    student1,
+    new Student(2, "Student 2", "Email 2"),
+    new Student(3, "Student 3", "Email 3"),
+    new Student(4, "Student 4", "Email 4"),
+    new Student(5, "Student 5", "Email 5")
+);
+
+Student student = new Student(1, "Student 1", "Email 1");
+System.out.println(addresses.contains(student)); // true
+
+ImmutableCollection&lt;Integer&gt; collection = ImmutableCollection.of(1, 2, 3, 4, 5);
+System.out.println(collection.isEmpty()); // false
+System.out.println(collection.size()); // 5</code></pre>
+<p>Note: you don't need to implement the <code class="language-java">main</code> method. </p>

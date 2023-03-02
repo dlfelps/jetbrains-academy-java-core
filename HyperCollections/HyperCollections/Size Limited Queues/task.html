@@ -1,0 +1,91 @@
+<h5 id="description">Description</h5>
+<p>A <strong>Size Limited Queue, </strong>or "CircularFifoQueue", is a first-in-first-out queue with a fixed size that replaces its oldest element if full.</p>
+<p>The removal order of a <code class="language-java">SizeLimitedQueue</code> is based on the insertion order, so elements are removed in the same order in which they were added. The iteration order is the same as the removal order.</p>
+<p>The <code class="language-java">add</code> and <code class="language-java">remove</code> operations all perform in constant time. All other operations perform in linear time or worse.</p>
+<p>To prevent unexpected situations with the operations of the collection, let's respond to some exceptional conditions. This queue prevents null objects from being added by throwing <code class="language-java">NullPointerException</code>. The provided limit should be positive, otherwise the queue should throw an <code class="language-java">IllegalArgumentException</code>. The <code class="language-java">peek</code> operation should return null, and the <code class="language-java">remove</code> operation should throw <code class="language-java">NoSuchElementException</code> for an empty queue.</p>
+<p>You may use unit tests to be sure you've implemented all collections correctly so far.</p>
+<h5 id="objectives">Objectives</h5>
+<p>You have to implement the <code class="language-java">SizeLimitedQueue&lt;E&gt;</code> class with the following endpoints:</p>
+<table align="center" border="1" cellpadding="1" cellspacing="1">
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: center;">void add(E element)</td>
+<td style="text-align: center;">Adds the given element to the queue</td>
+</tr>
+<tr>
+<td style="text-align: center;">void clear()</td>
+<td style="text-align: center;">Clears the queue</td>
+</tr>
+<tr>
+<td style="text-align: center;">boolean isAtFullCapacity()</td>
+<td style="text-align: center;">Returns <code class="language-java">true</code> if the capacity limit of the queue has been reached</td>
+</tr>
+<tr>
+<td style="text-align: center;">boolean isEmpty()</td>
+<td style="text-align: center;">Returns <code class="language-java">true</code> if the queue is empty, and <code class="language-java">false</code> otherwise</td>
+</tr>
+<tr>
+<td style="text-align: center;">int maxSize()</td>
+<td style="text-align: center;">Gets the maximum size of the collection (the bound)</td>
+</tr>
+<tr>
+<td style="text-align: center;">E peek()</td>
+<td style="text-align: center;">Returns the first element in the queue</td>
+</tr>
+<tr>
+<td style="text-align: center;">E remove()</td>
+<td style="text-align: center;">Removes the first element in the queue</td>
+</tr>
+<tr>
+<td style="text-align: center;">int size()</td>
+<td style="text-align: center;">Returns the number of elements stored in the queue</td>
+</tr>
+<tr>
+<td style="text-align: center;">E[] toArray(E[] e)</td>
+<td style="text-align: center;">Returns the queue elements as an <code class="language-java">E</code> array from tail to head</td>
+</tr>
+<tr>
+<td style="text-align: center;">Object[] toArray()</td>
+<td style="text-align: center;">Returns the queue elements as an <code class="language-java">Object</code> array from tail to head</td>
+</tr>
+</tbody>
+</table>
+<p>Note:<strong> </strong>the <code class="language-java">SizeLimitedQueue</code> class must be generic.</p>
+<h5 id="example">Example</h5>
+<p>Here is an example of how to work with the collection.</p>
+<pre><code class="language-java">SizeLimitedQueue&lt;Integer&gt; collection = new SizeLimitedQueue&lt;&gt;(3); // limit is 3
+
+System.out.println(collection); // []
+System.out.println(collection.maxSize()); // 3
+System.out.println(collection.size()); // 0
+System.out.println(collection.isEmpty()); // true
+
+collection.add(1);
+collection.add(2);
+
+System.out.println(collection.isEmpty()); // false
+System.out.println(collection); // [1, 2]
+System.out.println(collection.isAtFullCapacity()); // false
+
+collection.add(3);
+
+System.out.println(collection); // [1, 2, 3]
+System.out.println(collection.isAtFullCapacity()); // true
+
+collection.add(4);
+System.out.println(collection); // [2, 3, 4]
+
+System.out.println(collection.peek()); // 2
+System.out.println(collection); // [2, 3, 4]
+System.out.println(collection.remove()); // 2
+System.out.println(collection); // [3, 4]
+
+System.out.println(collection.toArray().getClass()); // class [Ljava.lang.Object;
+System.out.println(collection.toArray(new Integer[0]).getClass()); // class [Ljava.lang.Integer;</code></pre>
+<p>Note: you don't need to implement the <code class="language-java">main</code> method. </p>

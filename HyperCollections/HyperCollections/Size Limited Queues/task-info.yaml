@@ -1,0 +1,1588 @@
+type: edu
+files:
+- name: src/collections/Main.java
+  visible: true
+  text: |-
+    package collections;
+
+    public class Main {
+      public static void main(String[] args) {
+        System.out.println("Hello World!");
+      }
+    }
+  learner_created: false
+- name: test/BiMapTests.java
+  visible: false
+  text: |-
+    import org.hyperskill.hstest.common.ReflectionUtils;
+    import org.hyperskill.hstest.dynamic.DynamicTest;
+    import org.hyperskill.hstest.exception.outcomes.UnexpectedError;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+    import org.hyperskill.hstest.stage.StageTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+
+    import java.io.ByteArrayOutputStream;
+    import java.io.PrintStream;
+    import java.lang.reflect.Constructor;
+    import java.lang.reflect.InvocationTargetException;
+    import java.lang.reflect.Method;
+    import java.lang.reflect.Modifier;
+    import java.util.*;
+    import java.util.regex.Pattern;
+
+    class BiMapDelegateSearcher extends DelegateSearcher {
+      void Initialize() {
+        this.name = "BiMap";
+      }
+
+      void Validate() {
+        if (original.getTypeParameters().length == 0) {
+          throw new WrongAnswer(name + " Class must be a Generic Class.");
+        }
+
+        try {
+          Constructor<?> publicConstr = original.getDeclaredConstructor();
+          if (!Modifier.isPublic(publicConstr.getModifiers())) {
+            throw new WrongAnswer(name + "'s constructor with no args should be public");
+          }
+        } catch (NoSuchMethodException e) {
+          throw new WrongAnswer(name + "'s public constructor with no args is not found");
+        }
+
+        //Name, isStatic, returnType, argsType
+        CustomMethod[] methods = new CustomMethod[]{
+                new CustomMethod("forcePut", false, Object.class, new Class[]{Object.class, Object.class}),
+                new CustomMethod("inverse", false, original, new Class[]{}),
+                new CustomMethod("put", false, Object.class, new Class[]{Object.class, Object.class}),
+                new CustomMethod("putAll", false, void.class, new Class[]{Map.class}),
+                new CustomMethod("values", false, Set.class, new Class[]{})
+        };
+
+        for (CustomMethod m : methods) {
+          Method method;
+          try {
+            method = original.getMethod(m.getName(), m.getArgs());
+          } catch (NoSuchMethodException e) {
+            ArrayList<String> names = new ArrayList<>();
+            for (Class<?> p : m.getArgs()) {
+              if (p.equals(Object.class)) {
+                names.add("K");
+                names.add("V");
+                break;
+              } else {
+                names.add(p.getSimpleName());
+              }
+            }
+            if (names.isEmpty()) {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method without args is not found");
+            } else {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method with args " + names + " is not found");
+            }
+          }
+
+          if (!method.getReturnType().equals(m.getReturnType())) {
+            if (m.getReturnType().equals(Object.class)) {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method must return V");
+            } else {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method must return " + m.getReturnType().getSimpleName());
+            }
+          }
+
+          if (!Modifier.isPublic(method.getModifiers())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must be public");
+          }
+        }
+      }
+
+      @Override
+      protected Object invoke(String methodName, Class<?>[] args, Object... objs) {
+        try {
+          if (objs.length == 0) {
+            Method method = original.getMethod(methodName);
+            return method.invoke(instance);
+          } else {
+            Method method = original.getMethod(methodName, args);
+            return ReflectionUtils.invokeMethod(method, instance, objs);
+          }
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException | UnexpectedError e) {
+          if (e.getCause() != null && e.getCause().getClass().getSimpleName().equals("IllegalArgumentException")) {
+            throw new IllegalArgumentException();
+          }
+          throw new WrongAnswer("Could not invoke " + name + "'s " + methodName + "() method correctly");
+        }
+      }
+    }
+
+    class BiMapBridge extends BiMapDelegateSearcher {
+      public BiMapBridge() {
+        try {
+          instance = original.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+          throw new WrongAnswer("Could not create new " + name + "'s instance");
+        }
+      }
+
+      public Object put(Object key, Object value) {
+        return invoke("put", new Class[]{Object.class, Object.class}, key, value);
+      }
+
+      public void putAll(Map<Object, Object> m) {
+        invoke("putAll", new Class[]{Map.class}, m);
+      }
+
+      public Set<?> values() {
+        return (Set<?>) invoke("values", new Class[]{});
+      }
+
+      public Object forcePut(Object key, Object value) {
+        return invoke("forcePut", new Class[]{Object.class, Object.class}, key, value);
+      }
+
+      public Object inverse() {
+        return invoke("inverse", new Class[]{});
+      }
+
+      public String toString() {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos);
+        PrintStream old = System.out;
+        System.setOut(ps);
+
+        System.out.print(instance);
+
+        System.out.flush();
+        System.setOut(old);
+        return baos.toString();
+      }
+    }
+
+    public class BiMapTests extends StageTest {
+      Pattern pattern = Pattern.compile("\\{(\\w+=\\w+)+(?:, (\\w+=\\w+)+)*\\}|\\{\\}");
+
+      Map<Object, Object> collToMap(Object s, Class<?> k, Class<?> v) {
+        String[] elements = s.toString().replaceAll("\\s|\\{|\\}", "").split(",");
+        Map<Object, Object> map = new HashMap<>();
+        if (elements[0].equals("")) {
+          return map;
+        }
+        for (String e : elements) {
+          String[] kv = e.split("=");
+          Object kObj = null, vObj = null;
+          switch (k.getSimpleName()) {
+            case "Character" -> kObj = kv[0].charAt(0);
+            case "Integer" -> kObj = Integer.parseInt(kv[0]);
+            case "String" -> kObj = kv[0];
+          }
+          switch (v.getSimpleName()) {
+            case "Character" -> vObj = kv[1].charAt(0);
+            case "Integer" -> vObj = Integer.parseInt(kv[1]);
+            case "String" -> vObj = kv[1];
+          }
+          map.put(kObj, vObj);
+        }
+        return map;
+      }
+
+      void Check(BiMapBridge collection, Map<Object, Object> map,
+                 Map<Object, Object> inverse, String methodName, Class<?> k, Class<?> v) {
+        if (!pattern.matcher(collection.toString()).matches()) {
+          throw new WrongAnswer("Instance of BiMap object should be printed as a map, just like in the example.");
+        }
+        if (!pattern.matcher(collection.inverse().toString()).matches()) {
+          throw new WrongAnswer("Inverted instance of BiMap object should be printed as a map, just like in the example.");
+        }
+
+        if (!methodName.equals("")) {
+          if (!collToMap(collection, k, v).equals(map)) {
+            System.out.println(collToMap(collection, k, v));
+            System.out.println(map);
+            throw new WrongAnswer("BiMap's " + methodName + "() method not working correctly");
+          }
+        }
+
+        if (!collToMap(collection.inverse(), v, k).equals(inverse)) {
+          System.out.println(collToMap(collection.inverse(), v, k));
+          System.out.println(inverse);
+          throw new WrongAnswer("BiMap's inverse() method not working correctly");
+        }
+
+        if (!collection.values().equals(inverse.keySet())) {
+          throw new WrongAnswer("Incorrect result from BiMap's values() method.");
+        }
+      }
+
+      @DynamicTest(order = 1)
+      CheckResult test_empty() {
+        BiMapBridge collection = new BiMapBridge();
+
+        Map<Object, Object> map = new HashMap<>(), inverse = new HashMap<>();
+
+        //Check_empty
+        Check(collection, map, inverse, "", Object.class, Object.class);
+        return CheckResult.correct();
+      }
+
+      Object[][] test_data = {
+              {new Object[][]{{'a', 3}, {'b', 4}, {'c', 5}, {'d', 6}},
+                      Character.class, Integer.class},
+              {new Object[][]{{'a', "ABC"}, {'b', "BCD"}, {'c', "CDE"}, {'d', "DEF"}}, Character.class, String.class},
+              {new Object[][]{{1, 3}, {2, 4}, {3, 5}, {4, 6}}, Integer.class, Integer.class}
+      };
+
+      @DynamicTest(data = "test_data", order = 2)
+      CheckResult test_put(Object[][] data, Class<?> k, Class<?> v) {
+        BiMapBridge collection = new BiMapBridge();
+
+        Map<Object, Object> map = new HashMap<>(), inverse = new HashMap<>();
+        //Check_put
+        for (Object[] d : data) {
+          collection.put(d[0], d[1]);
+          map.put(d[0], d[1]);
+          inverse.put(d[1], d[0]);
+
+          Check(collection, map, inverse, "put", k, v);
+        }
+
+        return CheckResult.correct();
+      }
+
+      @DynamicTest(order = 3)
+      CheckResult test_put_illegal_key() {
+        BiMapBridge collection = new BiMapBridge();
+
+        collection.put('a', 3);
+        collection.put('b', 4);
+
+        boolean c = false;
+        try {
+          collection.put('a', 5);
+        } catch (IllegalArgumentException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("BiMap's put() method should throw an IllegalArgumentException if " +
+                  "a key or a value already exists in the BiMap");
+        }
+
+        return CheckResult.correct();
+      }
+
+      @DynamicTest(order = 4)
+      CheckResult test_put_illegal_value() {
+        BiMapBridge collection = new BiMapBridge();
+
+        collection.put('a', 3);
+        collection.put('b', 4);
+
+        boolean c = false;
+        try {
+          collection.put('c', 4);
+        } catch (IllegalArgumentException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("BiMap's put() method should throw an IllegalArgumentException if " +
+                  "a key or a value already exists in the BiMap");
+        }
+
+        return CheckResult.correct();
+      }
+
+      Object[][] test_maps = {
+              {
+                      new Map[]{
+                              Map.of('a', 3, 'b', 4, 'c', 5, 'd', 6),
+                              Map.of('e', 7, 'f', 8, 'g', 9, 'h', 10)
+                      },
+                      Character.class, Integer.class
+              },
+              {
+                      new Map[]{
+                              Map.of('a', "ABC", 'b', "BCD", 'c', "CDE", 'd', "DEF"),
+                              Map.of('e', "EFG", 'f', "FGH", 'g', "GHK", 'h', "HKL")
+                      },
+                      Character.class, String.class
+              },
+              {
+                      new Map[]{
+                              Map.of(1, 3, 2, 4, 3, 5, 4, 6),
+                              Map.of(5, 7, 6, 8, 7, 9, 8, 10)
+                      },
+                      Integer.class, Integer.class
+              },
+      };
+
+      @DynamicTest(data = "test_maps", order = 5)
+      CheckResult test_putAll(Map<Object, Object>[] maps, Class<?> k, Class<?> v) {
+        BiMapBridge collection = new BiMapBridge();
+
+        Map<Object, Object> map = new HashMap<>(), inverse = new HashMap<>();
+
+        //Check_putAll
+        for (Map<Object, Object> m : maps) {
+          for (Map.Entry<Object, Object> e : m.entrySet()) {
+            map.put(e.getKey(), e.getValue());
+            inverse.put(e.getValue(), e.getKey());
+          }
+
+          collection.putAll(m);
+
+          Check(collection, map, inverse, "putAll", k, v);
+        }
+
+        return CheckResult.correct();
+      }
+
+      @DynamicTest(order = 6)
+      CheckResult test_putAll_illegal_values() {
+        BiMapBridge collection = new BiMapBridge();
+
+        collection.putAll(Map.of('a', 3, 'b', 4, 'c', 5, 'd', 6));
+
+        boolean c = false;
+        try {
+          collection.putAll(Map.of('e', 5, 'f', 6));
+        } catch (IllegalArgumentException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("BiMap's putAll() method should throw an IllegalArgumentException if " +
+                  "a key or a value already exists in the BiMap");
+        }
+
+        return CheckResult.correct();
+      }
+
+      @DynamicTest(order = 7)
+      CheckResult test_putAll_illegal_keys() {
+        BiMapBridge collection = new BiMapBridge();
+
+        collection.putAll(Map.of('a', 3, 'b', 4, 'c', 5, 'd', 6));
+
+        boolean c = false;
+        try {
+          collection.putAll(Map.of('a', 7, 'b', 8));
+        } catch (IllegalArgumentException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("BiMap's putAll() method should throw an IllegalArgumentException if " +
+                  "a key or a value already exists in the BiMap");
+        }
+
+        return CheckResult.correct();
+      }
+
+      @DynamicTest(data = "test_data", order = 8)
+      CheckResult test_forcePut_as_put(Object[][] data, Class<?> k, Class<?> v) {
+        BiMapBridge collection = new BiMapBridge();
+
+        Map<Object, Object> map = new HashMap<>(), inverse = new HashMap<>();
+
+        //Check_forcePut
+        for (Object[] d : data) {
+          if (map.containsKey(d[0])) {
+            Object value = map.get(d[0]);
+            map.remove(d[0]);
+            inverse.remove(value);
+          }
+          map.put(d[0], d[1]);
+          inverse.put(d[1], d[0]);
+
+          collection.forcePut(d[0], d[1]);
+
+          Check(collection, map, inverse, "forcePut", k, v);
+        }
+
+        return CheckResult.correct();
+      }
+
+      @DynamicTest(order = 9)
+      CheckResult test_forcePut() {
+
+        Object[][] data = new Object[][]{{'a', 3}, {'b', 4}, {'c', 5}, {'d', 6}, {'e', 7},
+                {'f', 6}, {'g', 7}, {'h', 6},
+                {'a', 8}, {'b', 9}, {'a', 10},
+                {'c', 5}};
+
+        BiMapBridge collection = new BiMapBridge();
+
+        Map<Object, Object> map = new HashMap<>(), inverse = new HashMap<>();
+
+        //Check_forcePut
+        for (Object[] d : data) {
+          Object value, key;
+
+          value = map.get(d[0]);
+          if(value!=null) {
+            map.remove(d[0]);
+            inverse.remove(value);
+          }
+          key = inverse.get(d[1]);
+          if(key!=null) {
+            map.remove(key);
+            inverse.remove(d[1]);
+          }
+
+          map.put(d[0], d[1]);
+          inverse.put(d[1], d[0]);
+
+          collection.forcePut(d[0], d[1]);
+
+          Check(collection, map, inverse, "forcePut", Character.class, Integer.class);
+        }
+
+        return CheckResult.correct();
+      }
+
+    //
+    //  Object[][] test_combined = {
+    //          {
+    //                  new Object[][]{{'a', 3}, {'b', 4}, {'c', 5}, {'d', 6}, {'a', 7}, {'b', 3}, {'e', 5}, {'f', 6}},
+    //                  new Map[]{
+    //                          Map.of('a', 3, 'b', 4, 'c', 5, 'd', 6),
+    //                          Map.of('a', 7, 'e', 4, 'f', 8, 'd', 7),
+    //                          Map.of('a', 7, 'c', 2, 'f', 5, 'g', 3)
+    //                  },
+    //                  Character.class, Integer.class
+    //          },
+    //          {
+    //                  new Object[][]{{'a', "ABC"}, {'b', "BCD"}, {'c', "CDE"}, {'d', "DEF"}, {'a', "EFG"}, {'b', "ABD"},
+    //                          {'e',
+    //                                  "CDE"}, {'f', "DEF"}},
+    //                  new Map[]{
+    //                          Map.of('a', "ABC", 'b', "BCD", 'c', "CDE", 'd', "DEF"),
+    //                          Map.of('a', "EFG", 'e', "BCD", 'f', "FGH", 'd', "EFG"),
+    //                          Map.of('a', "EFG", 'c', "ABB", 'f', "CDE", 'g', "ABC")
+    //                  },
+    //                  Character.class, String.class
+    //          },
+    //          {
+    //                  new Object[][]{{1, 3}, {2, 4}, {3, 5}, {4, 6}, {1, 7}, {2, 3}, {5, 5}, {6, 6}},
+    //                  new Map[]{
+    //                          Map.of(1, 3, 2, 4, 3, 5, 4, 6),
+    //                          Map.of(1, 7, 5, 4, 6, 8, 4, 7),
+    //                          Map.of(1, 7, 3, 2, 6, 5, 7, 3)
+    //                  },
+    //                  Integer.class, Integer.class
+    //          },
+    //  };
+    //
+    //  @DynamicTest(data = "test_combined", order = 5, repeat = 5)
+    //  CheckResult test_everything(Object[][] data, Map<Object, Object>[] maps, Class<?> k, Class<?> v) {
+    //    BiMapBridge collection = new BiMapBridge();
+    //
+    //    Map<Object, Object> map = new HashMap<>(), inverse = new HashMap<>();
+    //
+    //    int putCase = 0; // 8
+    //    int mapCase = 0; // 3
+    //
+    //    Random rd = new Random();
+    //
+    //    //Check
+    //    while (putCase != 8 || mapCase != 3) {
+    //      boolean ch = rd.nextBoolean();
+    //      String methodName = "";
+    //      if (ch && putCase != 8 || mapCase == 3) {
+    //        ch = rd.nextBoolean();
+    //        Object kObj = data[putCase][0], vObj = data[putCase][1];
+    //
+    //        if (ch) {
+    //          methodName = "put";
+    //
+    //          map.put(kObj, vObj);
+    //          inverse.put(vObj, kObj);
+    //          collection.put(kObj, vObj);
+    //        } else {
+    //          methodName = "forcePut";
+    //
+    //          if (map.containsKey(kObj)) {
+    //            Object value = map.get(kObj);
+    //            map.remove(kObj);
+    //            inverse.remove(value);
+    //          }
+    //          map.put(kObj, vObj);
+    //          inverse.put(vObj, kObj);
+    //          collection.forcePut(kObj, vObj);
+    //        }
+    //        putCase++;
+    //      } else {
+    //        methodName = "putAll";
+    //
+    //        for (Map.Entry<Object, Object> e : maps[mapCase].entrySet()) {
+    //          map.put(e.getKey(), e.getValue());
+    //          inverse.put(e.getValue(), e.getKey());
+    //        }
+    //
+    //        collection.putAll(maps[mapCase]);
+    //        mapCase++;
+    //      }
+    //      Check(collection, map, inverse, methodName, k, v);
+    //    }
+    //    return CheckResult.correct();
+    //  }
+    }
+  learner_created: false
+- name: test/Helper.java
+  visible: false
+  text: |-
+    import org.hyperskill.hstest.common.ReflectionUtils;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+
+    import java.lang.reflect.InvocationTargetException;
+    import java.lang.reflect.Method;
+
+    class CustomMethod {
+      private final String name;
+      private final boolean isStatic;
+      private final Class<?> returnType;
+      private final Class<?>[] args;
+
+      public CustomMethod(String name, boolean isStatic, Class<?> returnType, Class<?>[] args) {
+        this.name = name;
+        this.isStatic = isStatic;
+        this.returnType = returnType;
+        this.args = args;
+      }
+
+      public String getName() {
+        return name;
+      }
+
+      public Class<?> getReturnType() {
+        return returnType;
+      }
+
+      public Class<?>[] getArgs() {
+        return args;
+      }
+
+      public boolean isStatic() {
+        return isStatic;
+      }
+    }
+
+    abstract class DelegateSearcher {
+      Class<?> original;
+      Object instance;
+      String name;
+
+      public DelegateSearcher() {
+        Initialize();
+        for (Class<?> c : ReflectionUtils.getAllClassesFromPackage("collections")) {
+          if (c.getSimpleName().equals(name)) {
+            original = c;
+            Validate();
+            return;
+          }
+        }
+        throw new WrongAnswer("Could not Find "+name+" Class");
+      }
+
+      abstract void Initialize();
+      abstract void Validate();
+
+      protected Object invoke(String methodName, Class<?>[] args, Object... objs) {
+        try {
+          if (objs.length == 0) {
+            Method method = original.getMethod(methodName);
+            return method.invoke(instance);
+          } else {
+            Method method = original.getMethod(methodName, args);
+            return ReflectionUtils.invokeMethod(method, instance, objs);
+          }
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+          throw new WrongAnswer("Could not invoke " +name+"'s "+ methodName + "() method correctly.");
+        }
+      }
+    }
+  learner_created: false
+- name: test/ImmutabilityTests.java
+  visible: false
+  text: |-
+    import org.hyperskill.hstest.common.ReflectionUtils;
+    import org.hyperskill.hstest.dynamic.DynamicTest;
+    import org.hyperskill.hstest.exception.outcomes.UnexpectedError;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+    import org.hyperskill.hstest.stage.StageTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+
+    import java.lang.reflect.InvocationTargetException;
+    import java.lang.reflect.Method;
+    import java.lang.reflect.Modifier;
+    import java.util.ArrayList;
+    import java.util.Arrays;
+
+    class ImmutableDelegateSearcher extends DelegateSearcher {
+      void Initialize() {
+        this.name = "ImmutableCollection";
+      }
+
+      void Validate() {
+        if (!Modifier.isFinal(original.getModifiers())) {
+          throw new WrongAnswer(name + " Class must be a final Class");
+        }
+        if (original.getTypeParameters().length == 0) {
+          throw new WrongAnswer(name + " Class must be a Generic Class.");
+        }
+        for (var c : original.getDeclaredConstructors()) {
+          if (Modifier.isPublic(c.getModifiers())) {
+            throw new WrongAnswer("None of the " + name + "'s constructors should be public");
+          }
+        }
+        //Name, isStatic, returnType, argsType
+        CustomMethod[] methods = new CustomMethod[]{
+                new CustomMethod("of", true, original, new Class[]{}),
+                new CustomMethod("of", true, original, new Class[]{Object[].class}),
+                new CustomMethod("contains", false, boolean.class, new Class[]{Object.class}),
+                new CustomMethod("size", false, int.class, new Class[]{}),
+                new CustomMethod("isEmpty", false, boolean.class, new Class[]{})
+        };
+
+        for (CustomMethod m : methods) {
+          Method method;
+          try {
+            method = original.getMethod(m.getName(), m.getArgs());
+          } catch (NoSuchMethodException e) {
+
+            ArrayList<String> names = new ArrayList<>();
+            for (Class<?> p : m.getArgs()) {
+              if (p.equals(Object.class)) {
+                names.add("E");
+              } else if (p.equals(Object[].class)) {
+                names.add("E[]");
+              } else {
+                names.add(p.getSimpleName());
+              }
+            }
+            if (names.isEmpty()) {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method without args is not found");
+            } else {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method with args " + names + " is not found");
+            }
+          }
+
+          if (m.isStatic() && !Modifier.isStatic(method.getModifiers())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must be static");
+          }
+          if (!m.isStatic() && Modifier.isStatic(method.getModifiers())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must not be static");
+          }
+
+          if (!method.getReturnType().equals(m.getReturnType())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must return " + m.getReturnType().getSimpleName());
+          }
+
+          if (!Modifier.isPublic(method.getModifiers())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must be public");
+          }
+        }
+      }
+      @Override
+      protected Object invoke(String methodName, Class<?>[] args, Object... objs) {
+        try {
+          if (objs.length == 0) {
+            Method method = original.getMethod(methodName);
+            return method.invoke(instance);
+          } else {
+            Method method = original.getMethod(methodName, args);
+            return ReflectionUtils.invokeMethod(method, instance, objs);
+          }
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException | UnexpectedError e) {
+          if (e.getCause() != null && e.getCause().getClass().getSimpleName().equals("NullPointerException")) {
+            throw new NullPointerException();
+          }
+
+          throw new WrongAnswer("Could not invoke " + name + "'s " + methodName + "() method correctly or it is throwing " +
+                  "wrong exception for a null element or invalid range");
+        }
+      }
+    }
+
+    class ImmutableBridge extends ImmutableDelegateSearcher {
+
+      public void of() {
+        instance = invoke("of", new Class[]{});
+      }
+
+      public void of(Object... objs) {
+        instance = invoke("of", new Class[]{Object[].class}, new Object[]{objs});
+      }
+
+      public int size() {
+        return (int) invoke("size", new Class[]{});
+      }
+
+      public boolean contains(Object element) {
+        return (boolean) invoke("contains", new Class[]{Object.class}, element);
+      }
+
+      public boolean isEmpty() {
+        return (boolean) invoke("isEmpty", new Class[]{});
+      }
+    }
+
+    public class ImmutabilityTests extends StageTest {
+
+      @DynamicTest()
+      CheckResult testNPE() {
+        ImmutableBridge collection = new ImmutableBridge();
+        boolean c = false;
+        try {
+          collection.of(new Object[]{null});
+        } catch (NullPointerException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("ImmutableCollection's of() method should throw a NullPointerException if " +
+                  "any of provided arguments is equal to 'null'");
+        }
+
+        c = false;
+        try {
+          collection.contains(null);
+        } catch (NullPointerException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("ImmutableCollection's contains() method should throw a NullPointerException if " +
+                  "any of provided arguments is equal to 'null'");
+        }
+
+        return CheckResult.correct();
+      }
+
+      //{<Array>, <!contains>}
+      Object[][] test_data = {
+              {new Object[]{}, new Object[]{"ABC", 1, 'a'}},
+              {new Integer[]{1, 2, 3, 4}, new Object[]{"ABC", 5, 'a'}},
+              {new Character[]{'a', 'b', 'c'}, new Object[]{"ABC", 1, 'd'}},
+              {new String[]{"ABC", "XYZ", "MNO", "PQR"}, new Object[]{"Hello", 1, 'a'}},
+      };
+
+      @DynamicTest(data = "test_data", order = 1)
+      CheckResult test(Object[] array, Object[] nContains) {
+
+        ImmutableBridge collection = new ImmutableBridge();
+
+        if (array.length == 0) {
+          collection.of();
+        } else {
+          collection.of(array);
+        }
+
+        if (collection.size() != array.length) {
+          return CheckResult.wrong("Incorrect result from ImmutableCollection's size() method.");
+        }
+
+        if (collection.isEmpty() != (array.length == 0)) {
+          return CheckResult.wrong("Incorrect result from ImmutableCollection's isEmpty() method.");
+        }
+
+        for (Object i : array) {
+          if (!collection.contains(i)) {
+            return CheckResult.wrong("Incorrect result from ImmutableCollection's contains() method.");
+          }
+        }
+
+        for (Object i : nContains) {
+          if (collection.contains(i)) {
+            return CheckResult.wrong("Incorrect result from ImmutableCollection's contains() method.");
+          }
+        }
+
+        return CheckResult.correct();
+      }
+    }
+  learner_created: false
+- name: test/MultisetTests.java
+  visible: false
+  text: |-
+    import org.hyperskill.hstest.common.ReflectionUtils;
+    import org.hyperskill.hstest.dynamic.DynamicTest;
+    import org.hyperskill.hstest.exception.outcomes.UnexpectedError;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+    import org.hyperskill.hstest.stage.StageTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+
+    import java.io.ByteArrayOutputStream;
+    import java.io.PrintStream;
+    import java.lang.reflect.InvocationTargetException;
+    import java.lang.reflect.Method;
+    import java.lang.reflect.Modifier;
+    import java.util.*;
+    import java.util.regex.Pattern;
+
+    class MultisetDelegateSearcher extends DelegateSearcher {
+      void Initialize() {
+        this.name = "Multiset";
+      }
+
+      void Validate() {
+        if (original.getTypeParameters().length == 0) {
+          throw new WrongAnswer(name + " Class must be a Generic Class.");
+        }
+        //Name, isStatic, returnType, argsType
+        CustomMethod[] methods = new CustomMethod[]{
+                new CustomMethod("add", false, void.class, new Class[]{Object.class, int.class}),
+                new CustomMethod("add", false, void.class, new Class[]{Object.class}),
+                new CustomMethod("contains", false, boolean.class, new Class[]{Object.class}),
+                new CustomMethod("count", false, int.class, new Class[]{Object.class}),
+                new CustomMethod("elementSet", false, Set.class, new Class[]{}),
+                new CustomMethod("remove", false, void.class, new Class[]{Object.class}),
+                new CustomMethod("remove", false, void.class, new Class[]{Object.class, int.class}),
+                new CustomMethod("setCount", false, void.class, new Class[]{Object.class, int.class}),
+                new CustomMethod("setCount", false, void.class, new Class[]{Object.class, int.class, int.class})
+        };
+
+        for (CustomMethod m : methods) {
+          Method method;
+          try {
+            method = original.getMethod(m.getName(), m.getArgs());
+          } catch (NoSuchMethodException e) {
+            ArrayList<String> names = new ArrayList<>();
+            for(Class<?> p : m.getArgs()){
+              if(p.equals(Object.class)){
+                names.add("E");
+              }else if(p.equals(Object[].class)){
+                names.add("E[]");
+              }else{
+                names.add(p.getSimpleName());
+              }
+            }
+            if(names.isEmpty()){
+              throw new WrongAnswer(name+"'s "+m.getName() + "() method without args is not found");
+            }else{
+              throw new WrongAnswer(name+"'s "+m.getName() + "() method with args " + names + " is not found");
+            }
+          }
+
+          if (!method.getReturnType().equals(m.getReturnType())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must return " + m.getReturnType().getSimpleName());
+          }
+
+          if (!Modifier.isPublic(method.getModifiers())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must be public");
+          }
+        }
+      }
+      @Override
+      protected Object invoke(String methodName, Class<?>[] args, Object... objs) {
+        try {
+          if (objs.length == 0) {
+            Method method = original.getMethod(methodName);
+            return method.invoke(instance);
+          } else {
+            Method method = original.getMethod(methodName, args);
+            return ReflectionUtils.invokeMethod(method, instance, objs);
+          }
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException | UnexpectedError e) {
+          throw new WrongAnswer("Could not invoke " + name + "'s " + methodName + "() method correctly: " + e.getMessage());
+        }
+      }
+    }
+
+    class MultisetBridge extends MultisetDelegateSearcher {
+
+      public MultisetBridge() {
+        try {
+          instance = original.newInstance();
+        } catch (InstantiationException | IllegalAccessException e) {
+          throw new WrongAnswer("Could not create new " + name + "'s instance");
+        }
+      }
+
+      public void add(Object element, int occurrences) {
+        invoke("add", new Class[]{Object.class, int.class}, element, occurrences);
+      }
+
+      public void add(Object element) {
+        invoke("add", new Class[]{Object.class}, element);
+      }
+
+      public boolean contains(Object element) {
+        return (boolean) invoke("contains", new Class[]{Object.class}, element);
+      }
+
+      public int count(Object element) {
+        return (int) invoke("count", new Class[]{Object.class}, element);
+      }
+
+      public Set<?> elementSet() {
+        return (Set<?>) invoke("elementSet", new Class[]{});
+      }
+
+      public void remove(Object element) {
+        invoke("remove", new Class[]{Object.class}, element);
+      }
+
+      public void remove(Object element, int occurences) {
+        invoke("remove", new Class[]{Object.class, int.class}, element, occurences);
+      }
+
+      public void setCount(Object element, int count) {
+        invoke("setCount", new Class[]{Object.class, int.class}, element, count);
+      }
+
+      public void setCount(Object element, int oldCount, int newCount) {
+        invoke("setCount", new Class[]{Object.class, int.class, int.class}, element, oldCount, newCount);
+      }
+
+      public String toString() {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos);
+        PrintStream old = System.out;
+        System.setOut(ps);
+
+        System.out.print(instance);
+
+        System.out.flush();
+        System.setOut(old);
+        return baos.toString();
+      }
+    }
+
+    public class MultisetTests extends StageTest {
+      Pattern pattern = Pattern.compile("\\[\\w+(?:, \\w+)*\\]|\\[\\]");
+
+      String mapToString(Map<Object, Integer> map) {
+        List<Object> list = new ArrayList<>();
+        for (var it : map.entrySet()) {
+          for (int i = 0; i < it.getValue(); i++) {
+            list.add(it.getKey());
+          }
+        }
+        return list.toString();
+      }
+
+      void Check(MultisetBridge collection, Map<Object, Integer> map, String methodName) {
+        if (!pattern.matcher(collection.toString()).matches()) {
+          throw new WrongAnswer("Instance of Multiset object should be printed as a list, just like in the example.");
+        }
+        if (!methodName.equals(""))
+          if (!collection.toString().equals(mapToString(map))) {
+            throw new WrongAnswer("Multiset's " + methodName + "() method not working correctly");
+          }
+        if (!map.keySet().equals(collection.elementSet())) {
+          throw new WrongAnswer("Incorrect result from Multiset's elementSet() method.");
+        }
+
+        for (Object i : new Object[]{1, 'a', "ABC"}) {
+          if (collection.contains(i)) {
+            throw new WrongAnswer("Incorrect result from Multiset's contains() method.");
+          }
+        }
+        for (Object i : map.keySet()) {
+          if (map.containsKey(i) != collection.contains(i)) {
+            throw new WrongAnswer("Incorrect result from Multiset's contains() method.");
+          }
+        }
+
+        for (Object i : new Object[]{1, 'a', "ABC"}) {
+          if (collection.count(i) != 0) {
+            throw new WrongAnswer("Incorrect result from Multiset's count() method.");
+          }
+        }
+        for (Object i : map.keySet()) {
+          if (Optional.ofNullable(map.get(i)).orElse(0) != collection.count(i)) {
+            throw new WrongAnswer("Incorrect result from Multiset's count() method.");
+          }
+        }
+      }
+
+      @DynamicTest(order = 1)
+      CheckResult testEmpty() {
+        MultisetBridge collection = new MultisetBridge();
+        Map<Object, Integer> map = new HashMap<>();
+        Check(collection, map, "");
+        return CheckResult.correct();
+      }
+
+      Object[][] test_data = {
+              {new Integer[]{2, 3, 4}},
+              {new Character[]{'b', 'c', 'd'}},
+              {new String[]{"DEF", "XYZ", "MNO"}},
+              {new Object[]{2, 'b', "DEF"}}
+      };
+
+      @DynamicTest(data = "test_data", order = 2)
+      CheckResult testAdd(Object[] array) {
+        Map<Object, Integer> map = new HashMap<>();
+        MultisetBridge collection = new MultisetBridge();
+        for (Object i : array) {
+          //Add zero elements
+          collection.add(i, 0);
+          Check(collection, map, "add");
+
+          //Add one element
+          map.put(i, 1);
+          collection.add(i);
+          Check(collection, map, "add");
+
+          //Add zero elements again
+          collection.add(i, 0);
+          Check(collection, map, "add");
+
+          //Add 3 more elements
+          map.put(i, 4);
+          collection.add(i, 3);
+          Check(collection, map, "add");
+
+          //Add -1 element
+          collection.add(i,-1);
+          Check(collection, map, "add");
+
+          //Add 5 more elements
+          map.put(i, 9);
+          collection.add(i, 5);
+          Check(collection, map, "add");
+        }
+
+        return CheckResult.correct();
+      }
+
+
+      @DynamicTest(data = "test_data", order = 3)
+      CheckResult testRemove(Object[] array) {
+        Map<Object, Integer> map = new HashMap<>();
+        MultisetBridge collection = new MultisetBridge();
+
+        for (Object i : array) {
+          //Remove with 0 occurrences
+          collection.remove(i);
+          Check(collection, map, "remove");
+          collection.remove(i, 5);
+          Check(collection, map, "remove");
+
+          //Add 5
+          map.put(i, 5);
+          collection.add(i, 5);
+
+          //Remove 0
+          collection.remove(i,0);
+          Check(collection, map, "remove");
+
+          //Remove 1
+          map.put(i, 4);
+          collection.remove(i);
+          Check(collection, map, "remove");
+
+          //Remove 2
+          map.put(i, 2);
+          collection.remove(i, 2);
+          Check(collection, map, "remove");
+
+          //Remove -1
+          collection.remove(i, -1);
+          Check(collection, map, "remove");
+
+          //Remove last
+          map.remove(i);
+          collection.remove(i, 2);
+          Check(collection, map, "remove");
+
+          //Add 2 more
+          map.put(i, 2);
+          collection.add(i, 2);
+
+          //Remove more than last
+          map.remove(i);
+          collection.remove(i, 5);
+          Check(collection, map, "remove");
+
+          //Add 5 more
+          map.put(i, 5);
+          collection.add(i, 5);
+        }
+
+        return CheckResult.correct();
+      }
+
+      @DynamicTest(data = "test_data", order = 4)
+      CheckResult testSetCount(Object[] array) {
+        Map<Object, Integer> map = new HashMap<>();
+        MultisetBridge collection = new MultisetBridge();
+
+        for (Object i : array) {
+          //Set count with 0
+          collection.setCount(i,5);
+          Check(collection, map, "setCount");
+          collection.setCount(i, 2,5);
+          Check(collection, map, "setCount");
+
+          //Add 3
+          map.put(i, 3);
+          collection.add(i, 3);
+
+          //setCount, wrong oldCount
+          collection.setCount(i,2, 5);
+          Check(collection, map, "setCount");
+
+          //setCount, -1
+          collection.setCount(i,-1);
+          Check(collection, map, "setCount");
+
+          //setCount, -1 newCount
+          collection.setCount(i,3,-1);
+          Check(collection, map, "setCount");
+
+          //setCount, from 3 to 5
+          map.put(i,5);
+          collection.setCount(i,3,5);
+          Check(collection, map, "setCount");
+
+          //setCount, to 1
+          map.put(i,1);
+          collection.setCount(i,1);
+          Check(collection, map, "setCount");
+
+          //setCount, to 0
+          map.remove(i);
+          collection.setCount(i,0);
+          Check(collection, map, "setCount");
+
+          //Add 3 more
+          map.put(i, 3);
+          collection.add(i, 3);
+
+          //setCount, to 3 as well
+          collection.setCount(i,3,3);
+          Check(collection, map, "setCount");
+
+          collection.setCount(i,3);
+          Check(collection, map, "setCount");
+
+          //setCount, to 0 newCount
+          map.remove(i);
+          collection.setCount(i,3,0);
+          Check(collection, map, "setCount");
+
+          //Add 3 more
+          map.put(i, 3);
+          collection.add(i, 3);
+        }
+        return CheckResult.correct();
+      }
+    }
+  learner_created: false
+- name: test/QueueTests.java
+  visible: false
+  text: |-
+    import org.hyperskill.hstest.common.ReflectionUtils;
+    import org.hyperskill.hstest.dynamic.DynamicTest;
+    import org.hyperskill.hstest.exception.outcomes.UnexpectedError;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+    import org.hyperskill.hstest.stage.StageTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+
+    import java.io.ByteArrayOutputStream;
+    import java.io.PrintStream;
+    import java.lang.reflect.Constructor;
+    import java.lang.reflect.InvocationTargetException;
+    import java.lang.reflect.Method;
+    import java.lang.reflect.Modifier;
+    import java.util.*;
+    import java.util.regex.Pattern;
+
+    class SizeLimitedQueueDelegateSearcher extends DelegateSearcher {
+      void Initialize() {
+        this.name = "SizeLimitedQueue";
+      }
+
+      void Validate() {
+        if (original.getTypeParameters().length == 0) {
+          throw new WrongAnswer(name + " Class must be a Generic Class.");
+        }
+        try {
+          Constructor<?> constr = original.getDeclaredConstructor(int.class);
+          if (!Modifier.isPublic(constr.getModifiers())) {
+            throw new WrongAnswer(name + "'s constructor with args [" + int.class.getSimpleName() + "] should be public");
+          }
+        } catch (NoSuchMethodException e) {
+          throw new WrongAnswer(name + "'s public constructor with args [" + int.class.getSimpleName() + "] is not found");
+        }
+        //Name, isStatic, returnType, argsType
+        CustomMethod[] methods = new CustomMethod[]{
+                new CustomMethod("add", false, void.class, new Class[]{Object.class}),
+                new CustomMethod("clear", false, void.class, new Class[]{}),
+                new CustomMethod("isAtFullCapacity", false, boolean.class, new Class[]{}),
+                new CustomMethod("isEmpty", false, boolean.class, new Class[]{}),
+                new CustomMethod("maxSize", false, int.class, new Class[]{}),
+                new CustomMethod("peek", false, Object.class, new Class[]{}),
+                new CustomMethod("remove", false, Object.class, new Class[]{}),
+                new CustomMethod("size", false, int.class, new Class[]{}),
+                new CustomMethod("toArray", false, Object[].class, new Class[]{Object[].class}),
+                new CustomMethod("toArray", false, Object[].class, new Class[]{}),
+        };
+
+        for (CustomMethod m : methods) {
+          Method method;
+          try {
+            method = original.getMethod(m.getName(), m.getArgs());
+          } catch (NoSuchMethodException e) {
+
+            ArrayList<String> names = new ArrayList<>();
+            for (Class<?> p : m.getArgs()) {
+              if (p.equals(Object.class)) {
+                names.add("E");
+              } else if (p.equals(Object[].class)) {
+                names.add("E[]");
+              } else {
+                names.add(p.getSimpleName());
+              }
+            }
+            if (names.isEmpty()) {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method without args is not found");
+            } else {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method with args " + names + " is not found");
+            }
+          }
+
+          if (m.isStatic() && !Modifier.isStatic(method.getModifiers())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must be static");
+          }
+          if (!m.isStatic() && Modifier.isStatic(method.getModifiers())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must not be static");
+          }
+          if (!method.getReturnType().equals(m.getReturnType())) {
+            if (m.getReturnType().equals(Object.class)) {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method must return E");
+            } else if (m.getReturnType().equals(Object[].class)) {
+              if (m.getArgs().length != 0) {
+                throw new WrongAnswer(name + "'s " + m.getName() + "() method with args E[] must return E[]");
+              } else {
+                throw new WrongAnswer(name + "'s " + m.getName() + "() method without args must return Object[]");
+              }
+            } else {
+              throw new WrongAnswer(name + "'s " + m.getName() + "() method must return " + m.getReturnType().getSimpleName());
+            }
+          }
+
+          if (!Modifier.isPublic(method.getModifiers())) {
+            throw new WrongAnswer(name + "'s " + m.getName() + "() method must be public");
+          }
+        }
+      }
+
+      @Override
+      protected Object invoke(String methodName, Class<?>[] args, Object... objs) {
+        try {
+          if (objs.length == 0) {
+            Method method = original.getMethod(methodName);
+            return method.invoke(instance);
+          } else {
+            Method method = original.getMethod(methodName, args);
+            return ReflectionUtils.invokeMethod(method, instance, objs);
+          }
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException | UnexpectedError e) {
+          String add = ".";
+
+          if (methodName.equals("remove")) {
+            if (e.getCause() != null && e.getCause().getClass().getSimpleName().equals("NoSuchElementException")) {
+              throw new NoSuchElementException();
+            } else {
+              add = " or it is throwing wrong exception for empty queue";
+            }
+          }
+
+          if (methodName.equals("add")) {
+            if (e.getCause() != null && e.getCause().getClass().getSimpleName().equals("NullPointerException")) {
+              throw new NullPointerException();
+            } else {
+              add = " or it is throwing wrong exception for a null object argument";
+            }
+          }
+
+          throw new WrongAnswer("Could not invoke " + name + "'s " + methodName + "() method correctly" + add);
+        }
+      }
+    }
+
+    class SizeLimitedQueueBridge extends SizeLimitedQueueDelegateSearcher {
+
+      public SizeLimitedQueueBridge(int limit) {
+        try {
+          Constructor<?> constr = original.getDeclaredConstructor(int.class);
+          instance = constr.newInstance(limit);
+        } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+          if (e.getCause().getClass().getSimpleName().equals("IllegalArgumentException")) {
+            throw new IllegalArgumentException();
+          }
+          throw new WrongAnswer("Could not create new " + name + "'s instance or constructor is throwing wrong exception " +
+                  "for non-positive limit");
+        }
+      }
+
+      public void add(Object element) {
+        invoke("add", new Class[]{Object.class}, element);
+      }
+
+      public void clear() {
+        invoke("clear", new Class[]{});
+      }
+
+      public boolean isAtFullCapacity() {
+        return (boolean) invoke("isAtFullCapacity", new Class[]{});
+      }
+
+      public boolean isEmpty() {
+        return (boolean) invoke("isEmpty", new Class[]{});
+      }
+
+      public int maxSize() {
+        return (int) invoke("maxSize", new Class[]{});
+      }
+
+      public Object peek() {
+        return invoke("peek", new Class[]{});
+      }
+
+      public Object remove() {
+        return invoke("remove", new Class[]{});
+      }
+
+      public int size() {
+        return (int) invoke("size", new Class[]{});
+      }
+
+      public Object[] toArray(Object[] objs) {
+        return (Object[]) invoke("toArray", new Class[]{Object[].class}, new Object[]{objs});
+      }
+
+      public Object[] toArray() {
+        return (Object[]) invoke("toArray", new Class[]{});
+      }
+
+      public String toString() {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos);
+        PrintStream old = System.out;
+        System.setOut(ps);
+
+        System.out.print(instance);
+
+        System.out.flush();
+        System.setOut(old);
+        return baos.toString();
+      }
+    }
+
+    public class QueueTests extends StageTest {
+      Pattern pattern = Pattern.compile("\\[\\w+(?:, \\w+)*\\]|\\[\\]");
+
+      void Check(SizeLimitedQueueBridge collection, Queue<Object> q, int limit, String methodName, Object[] ref,
+                 Class<?> cl) {
+        if (!pattern.matcher(collection.toString()).matches()) {
+          throw new WrongAnswer("Instance of SizeLimitedQueue object should be printed as a list, just like in the " +
+                  "example.");
+        }
+        if (!methodName.equals(""))
+          if (!collection.toString().equals(Arrays.toString(q.toArray()))) {
+            throw new WrongAnswer("SizeLimitedQueue's " + methodName + "() method not working correctly");
+          }
+
+        //Side methods check
+        if ((q.size() == limit) != collection.isAtFullCapacity()) {
+          throw new WrongAnswer("Incorrect result from SizeLimitedQueue's isAtFullCapacity() method.");
+        }
+        if ((q.isEmpty()) != collection.isEmpty()) {
+          throw new WrongAnswer("Incorrect result from SizeLimitedQueue's isEmpty() method.");
+        }
+        if (collection.maxSize() != limit) {
+          throw new WrongAnswer("Incorrect result from SizeLimitedQueue's maxSize() method.");
+        }
+        if (collection.peek() != q.peek()) {
+          throw new WrongAnswer("Incorrect result from SizeLimitedQueue's peek() method.");
+        }
+        if (collection.size() != q.size()) {
+          throw new WrongAnswer("Incorrect result from SizeLimitedQueue's size() method.");
+        }
+
+        //Arrays check
+        if (!methodName.equals("")) {
+          if (collection.toArray().length != q.toArray().length) {
+            throw new WrongAnswer("Incorrect result from SizeLimitedQueue's toArray() method.");
+          }
+          if (collection.toArray(ref).length != q.toArray().length) {
+            throw new WrongAnswer("Incorrect result from SizeLimitedQueue's toArray(E[]) method.");
+          }
+
+          if (!collection.toArray().getClass().getSimpleName().equals(Object[].class.getSimpleName())) {
+            throw new WrongAnswer("Incorrect return type from SizeLimitedQueue's toArray() method.");
+          }
+          if (!collection.toArray(ref).getClass().getSimpleName().equals(cl.getSimpleName())) {
+            throw new WrongAnswer("Incorrect return type from SizeLimitedQueue's toArray(E[]) method.");
+          }
+
+          for (int j = 0; j < q.toArray().length; j++) {
+            if (collection.toArray()[j] != q.toArray()[j]) {
+              throw new WrongAnswer("Incorrect result from SizeLimitedQueue's toArray() method.");
+            }
+            if (collection.toArray(ref)[j] != q.toArray()[j]) {
+              throw new WrongAnswer("Incorrect result from SizeLimitedQueue's toArray(E[]) method.");
+            }
+          }
+        }
+      }
+
+      @DynamicTest()
+      CheckResult test_ex() {
+        boolean c = false;
+        //Non-positive limit
+        try {
+          new SizeLimitedQueueBridge(-1);
+        } catch (IllegalArgumentException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("SizeLimitedQueue's constructor should throw an IllegalArgumentException if provided" +
+                  " limit is negative");
+        }
+        c = false;
+        try {
+          new SizeLimitedQueueBridge(0);
+        } catch (IllegalArgumentException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("SizeLimitedQueue's constructor should throw an IllegalArgumentException if provided" +
+                  " limit is equal to zero");
+        }
+        //Positive limit
+        SizeLimitedQueueBridge collection;
+        try {
+          collection = new SizeLimitedQueueBridge(1);
+        } catch (IllegalArgumentException e) {
+          return CheckResult.wrong("SizeLimitedQueue's constructor should not throw an IllegalArgumentException if " +
+                  "provided limit is positive");
+        }
+        //Remove for empty
+        c = false;
+        try {
+          collection.remove();
+        } catch (NoSuchElementException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("SizeLimitedQueue's remove() method should throw an NoSuchElementException for an " +
+                  "empty queue");
+        }
+        //Add null
+        c = false;
+        try {
+          collection.add(null);
+        } catch (NullPointerException e) {
+          c = true;
+        }
+        if (!c) {
+          return CheckResult.wrong("SizeLimitedQueue's add() method should throw an NullPointerException for a null " +
+                  "object argument");
+        }
+        //Peek for empty
+        if (collection.peek() != null) {
+          return CheckResult.wrong("SizeLimitedQueue's peek() method should return null for an empty queue");
+        }
+        //Add not null
+        try {
+          collection.add(1);
+        } catch (NullPointerException e) {
+          return CheckResult.wrong("SizeLimitedQueue's add() method should not throw an NullPointerException for a " +
+                  "non-null object arguments");
+        }
+        //Remove for non empty
+        try {
+          collection.remove();
+        } catch (NoSuchElementException e) {
+          return CheckResult.wrong("SizeLimitedQueue's remove() method should not throw an NoSuchElementException for a " +
+                  "non-empty queue");
+        }
+
+        return CheckResult.correct();
+      }
+
+      @DynamicTest()
+      CheckResult test_empty() {
+        int limit = 5;
+        SizeLimitedQueueBridge collection = new SizeLimitedQueueBridge(limit);
+        Deque<Object> q = new ArrayDeque<>();
+        Check(collection, q, limit, "", new Object[0], Object.class);
+        return CheckResult.correct();
+      }
+
+      Object[][] test_data = {
+              {3, new Integer[]{2, 3, 4, 5, 6, 7, 8, 9, 10}, new Integer[0], Integer[].class},
+              {3, new Character[]{'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'}, new Character[0], Character[].class},
+              {3, new String[]{"BCD", "CDE", "DEF", "EFG", "FGH", "GHI", "HIJ", "IJK", "JKL"}, new String[0],
+                      String[].class},
+              {5, new Integer[]{2, 3, 4, 5, 6, 7, 8, 9, 10}, new Integer[0], Integer[].class},
+              {5, new Character[]{'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'}, new Character[0], Character[].class},
+              {5, new String[]{"BCD", "CDE", "DEF", "EFG", "FGH", "GHI", "HIJ", "IJK", "JKL"}, new String[0],
+                      String[].class},
+              {8, new Integer[]{2, 3, 4, 5, 6, 7, 8, 9, 10}, new Integer[0], Integer[].class},
+              {8, new Character[]{'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'}, new Character[0], Character[].class},
+              {8, new String[]{"BCD", "CDE", "DEF", "EFG", "FGH", "GHI", "HIJ", "IJK", "JKL"}, new String[0],
+                      String[].class}
+      };
+
+      @DynamicTest(data = "test_data")
+      CheckResult test_actions(int limit, Object[] array, Object[] ref, Class<?> cl) {
+        SizeLimitedQueueBridge collection = new SizeLimitedQueueBridge(limit);
+        Deque<Object> q = new ArrayDeque<>();
+        //Add
+        for (Object i : array) {
+          collection.add(i);
+          if (q.size() == limit) {
+            q.removeFirst();
+          }
+          q.add(i);
+          Check(collection, q, limit, "add", ref, cl);
+        }
+
+        //Remove
+        for (int i = 0; i < limit; i++) {
+          Object a = q.remove();
+          Object b = collection.remove();
+          if(a!=b){
+            return CheckResult.wrong("Incorrect result from SizeLimitedQueue's remove() method.");
+          }
+          Check(collection, q, limit, "remove", ref, cl);
+        }
+
+        //Remove after adding more
+        q.add(array[0]);
+        collection.add(array[0]);
+        Check(collection, q, limit, "add", ref, cl);
+        Object a = q.remove();
+        Object b = collection.remove();
+        if(a!=b){
+          return CheckResult.wrong("Incorrect result from SizeLimitedQueue's remove() method.");
+        }
+        Check(collection, q, limit, "remove", ref, cl);
+
+        //Add and clear
+        for (int i = 0; i < limit; i++) {
+          q.add(array[1]);
+          collection.add(array[1]);
+          Check(collection, q, limit, "add", ref, cl);
+        }
+        collection.clear();
+        q.clear();
+        Check(collection, q, limit, "clear", ref, cl);
+
+        //Recheck add
+        for (Object i : array) {
+          collection.add(i);
+          if (q.size() == limit) {
+            q.removeFirst();
+          }
+          q.add(i);
+          Check(collection, q, limit, "add", ref, cl);
+        }
+
+        return CheckResult.correct();
+      }
+    }
+  learner_created: false
+feedback_link: https://hyperskill.org/projects/319/stages/1791/implement#comment
+status: Unchecked
+record: -1
