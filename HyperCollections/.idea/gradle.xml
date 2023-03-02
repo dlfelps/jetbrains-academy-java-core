@@ -4,12 +4,19 @@
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="delegatedBuild" value="false" />
+        <option name="testRunner" value="GRADLE" />
         <option name="distributionType" value="WRAPPED" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/HyperCollections/task" />
+            <option value="$PROJECT_DIR$/HyperCollections/task/build/classes/java" />
+            <option value="$PROJECT_DIR$/HyperCollections/task/build/generated/sources/annotationProcessor/java" />
+            <option value="$PROJECT_DIR$/HyperCollections/task/build/generated/sources/headers/java" />
+            <option value="$PROJECT_DIR$/HyperCollections/task/build/reports/tests" />
+            <option value="$PROJECT_DIR$/HyperCollections/task/build/test-results" />
+            <option value="$PROJECT_DIR$/HyperCollections/task/build/tmp" />
             <option value="$PROJECT_DIR$/util" />
           </set>
         </option>

@@ -283,6 +283,12 @@ files:
       }
     }
   learner_created: false
+- name: src/collections/ImmutableCollection.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/projects/319/stages/1789/implement#comment
-status: Unchecked
-record: -1
+status: Solved
+feedback:
+  message: Congratulations!
+  time: "Thu, 02 Mar 2023 17:16:01 UTC"
+record: 1
